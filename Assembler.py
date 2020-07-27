@@ -6,7 +6,7 @@ class Assembler:
         'ADD' : ['1112', 'R'],
         'SUB' : ['1624','R'],
         'SUBS' : ['1880','R'],
-        'AND' : ['1112','R'],
+        'AND' : ['1104','R'],
         'ORR' : ['1360','R'],
         'EOR' : ['1872','R'],
         'LSL' : ['1691','R'],
@@ -21,13 +21,23 @@ class Assembler:
         'STUR' : ['1984','D'],
         'CBZ' : ['180','CB'],
         'CBNZ' : ['181','CB'],
-        'B.EQ' : ['679','CB','0'],
-        'B.NE' : ['679','CB','1'],
-        'B.GE' : ['679','CB','10'],
-        'B.LT' : ['679','CB','11'],
-        'B.GT' : ['679','CB','12'],
-        'B.LE' : ['679','CB','13'],
+        'B.EQ' : ['679','CB'],
+        'B.NE' : ['679','CB'],
+        'B.GE' : ['679','CB'],
+        'B.LT' : ['679','CB'],
+        'B.GT' : ['679','CB'],
+        'B.LE' : ['679','CB'],
         'B' : ['5','B']
+    }
+
+    # Key: OPCode | Value: RT value for CB-format
+    CB_RT_CONVERSION = {
+        'B.EQ' : '0',
+        'B.NE' : '1',
+        'B.GE' : '10',
+        'B.LT' : '11',
+        'B.GT' : '12',
+        'B.LE' : '13'
     }
 
     # Key: Label | Value: Line #
@@ -43,13 +53,16 @@ class Assembler:
             for line in IFile:
                 if ('XZR' in line):
                     line = line.replace('XZR', 'X31')
+                if ('//' in line):
+                    line = line.split('//')[0].rstrip()
+                    line = line + '\n'
                 if (':' in line):
                     temp_file.write(line.split(':')[1].lstrip())
                     self.labels[line.split(':')[0]] = line_num
                 else:
                     temp_file.write(line.lstrip())
                 line_num = line_num + 1
-
+# Private
     def __get_decimal(self, opcode, data, line_num, type):
         opc = self.OP_CONVERSION[opcode][0]
         if (type == 'R'):
@@ -74,11 +87,15 @@ class Assembler:
             rt = data.split()[0][1:-1]
             decimal_form = opc + ' ' + address + ' ' + op2 + ' ' + rn + ' ' + rt 
         elif (type == 'CB'):
-            address = str(self.labels[data] - line_num)
-            rt = self.OP_CONVERSION[opcode][2]
+            if (opcode == 'CBZ' or opcode == 'CBNZ'):
+                address = str(self.labels[data.split()[1]] - line_num)
+                rt = data.split()[0].lstrip()[1:-1]
+            else:
+                address = str(self.labels[data] - line_num)
+                rt = self.CB_RT_CONVERSION[opcode]
             decimal_form = opc + ' ' + address + ' ' + rt
         else:
-            address = str(self.labels[data] - line_num)
+            address = str(self.labels[data.lstrip()] - line_num)
             decimal_form = opc + ' ' + address
         return decimal_form
 
@@ -93,7 +110,6 @@ class Assembler:
 
     def __getBinary(self, decimal, type):
         decimal = decimal.split()
-        print(decimal)
         if (type == 'R'):
             opc = self.__convert_binary(decimal[0], 11)
             rm = self.__convert_binary(decimal[1], 5)
@@ -125,6 +141,7 @@ class Assembler:
             binary_form = opc + ' ' + address
         return binary_form
 
+# Public
     def to_files(self):
         with open('temp.txt', 'r') as temp_file, open('decimal.txt', 'a+') as D_OFile, open('binary.txt', 'a+') as B_OFile:
             D_OFile.write('See ' + self.path + ' for source code\n')
